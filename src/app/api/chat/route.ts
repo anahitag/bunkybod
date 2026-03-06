@@ -8,9 +8,12 @@ const getClient = () =>
   new OpenAI({
     baseURL: "https://models.github.ai/inference",
     apiKey: process.env.GITHUB_TOKEN,
+    timeout: 50000,
   });
 
 const MODEL = "openai/gpt-4o-mini";
+
+export const maxDuration = 60;
 
 function extractJson(text: string) {
   // Try code block first

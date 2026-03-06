@@ -10,6 +10,8 @@ const getClient = () =>
     timeout: 50000, // 50 second timeout (Vercel hobby allows 60s)
   });
 
+export const maxDuration = 60;
+
 // Simple in-memory cache — regenerate once per day or on manual refresh
 let cachedInsights: { data: unknown; timestamp: number } | null = null;
 const CACHE_TTL = 1000 * 60 * 60 * 12; // 12 hours
