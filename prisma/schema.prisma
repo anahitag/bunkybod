@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model UserProfile {
+  id              String   @id @default(cuid())
+  name            String   @default("User")
+  age             Int?
+  heightCm        Float?
+  currentWeightKg Float?
+  goalType        String   @default("maintain")
+  calorieTarget   Int      @default(2000)
+  proteinTargetG  Int      @default(150)
+  carbTargetG     Int      @default(250)
+  fatTargetG      Int      @default(65)
+  fiberTargetG    Int      @default(30)
+  onboarded       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  foodEntries FoodEntry[]
+  weightLogs  WeightLog[]
+}
+
+model FoodEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  date        String
+  mealType    String   @default("snack")
+  foodName    String
+  fdcId       Int?
+  servingSize Float    @default(1.0)
+  servingUnit String   @default("serving")
+  calories    Float    @default(0)
+  proteinG    Float    @default(0)
+  carbsG      Float    @default(0)
+  fatG        Float    @default(0)
+  fiberG      Float    @default(0)
+  sugarG      Float    @default(0)
+  sodiumMg    Float    @default(0)
+  loggedVia   String   @default("search")
+  createdAt   DateTime @default(now())
+
+  user UserProfile @relation(fields: [userId], references: [id])
+
+  @@index([userId, date])
+  @@index([date])
+}
+
+model WeightLog {
+  id        String   @id @default(cuid())
+  userId    String
+  date      String
+  weightKg  Float
+  createdAt DateTime @default(now())
+
+  user UserProfile @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  role      String
+  content   String
+  intent    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model DexaScan {
+  id              String   @id @default(cuid())
+  scanDate        String
+  totalWeightLbs  Float?
+  bodyFatPct      Float
+  leanMassLbs     Float
+  fatMassLbs      Float
+  boneMassLbs     Float?
+  visceralFat     Float?
+  // Regional fat %
+  trunkFatPct     Float?
+  armsFatPct      Float?
+  legsFatPct      Float?
+  // Regional lean mass (lbs)
+  trunkLeanLbs    Float?
+  armsLeanLbs     Float?
+  legsLeanLbs     Float?
+  // Regional fat mass (lbs)
+  trunkFatLbs     Float?
+  armsFatLbs      Float?
+  legsFatLbs      Float?
+  // Android/Gynoid
+  androidFatPct   Float?
+  gynoidFatPct    Float?
+  agRatio         Float?
+  // Bone density
+  bmdGcm2         Float?
+  tScore          Float?
+  // Metabolic
+  bmr             Float?
+  notes           String?
+  fileUrl         String?
+  createdAt       DateTime @default(now())
+
+  @@index([scanDate])
+}
+
+model HealthMetric {
+  id        String   @id @default(cuid())
+  date      String
+  type      String   // steps, restingHR, hrv, activeCalories, exerciseMinutes, sleepMinutes, vo2Max, weight
+  value     Float
+  unit      String   @default("")
+  source    String   @default("apple_health")
+  createdAt DateTime @default(now())
+
+  @@unique([date, type])
+  @@index([date])
+  @@index([type, date])
+}
+
+model Workout {
+  id            String   @id @default(cuid())
+  date          String
+  workoutType   String
+  durationMin   Float
+  caloriesBurned Float?
+  avgHeartRate  Float?
+  maxHeartRate  Float?
+  distance      Float?
+  distanceUnit  String?
+  source        String   @default("apple_health")
+  startTime     String?
+  createdAt     DateTime @default(now())
+
+  @@index([date])
+}
+
+model FoodMemory {
+  id          String   @id @default(cuid())
+  foodName    String   @unique
+  calories    Float
+  proteinG    Float
+  carbsG      Float
+  fatG        Float
+  fiberG      Float    @default(0)
+  servingDesc String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
