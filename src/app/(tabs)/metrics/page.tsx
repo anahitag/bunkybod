@@ -10,7 +10,7 @@ import {
   ResponsiveContainer, BarChart, Bar, AreaChart, Area,
 } from "recharts";
 import { format, parseISO } from "date-fns";
-import { Footprints, Heart, Moon, Flame, Dumbbell, TrendingUp, Activity } from "lucide-react";
+import { Footprints, Heart, Moon, Flame, Dumbbell, TrendingUp, Activity, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 

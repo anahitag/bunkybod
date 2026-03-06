@@ -35,13 +35,13 @@ export async function POST(request: Request) {
     let text: string;
     try {
       const rawText = await extractPdfText(buffer);
-      // getText() returns an object like {pages: [{text: "..."}, ...]}
-      if (typeof rawText === "object" && rawText !== null) {
+      // getText() may return various formats
+      if (Array.isArray(rawText)) {
+        text = (rawText as string[]).join("\n");
+      } else if (typeof rawText === "object" && rawText !== null) {
         const pages = (rawText as { pages?: { text?: string }[] }).pages;
         if (Array.isArray(pages)) {
           text = pages.map((p) => p.text || "").join("\n\n");
-        } else if (Array.isArray(rawText)) {
-          text = rawText.join("\n");
         } else {
           text = JSON.stringify(rawText);
         }
