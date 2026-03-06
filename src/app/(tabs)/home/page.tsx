@@ -5,7 +5,12 @@ import { CoachDashboard } from "@/components/coach/coach-dashboard";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const profile = await prisma.userProfile.findFirst();
-  if (!profile || !profile.onboarded) redirect("/onboarding");
-  return <CoachDashboard userName={profile.name} />;
+  try {
+    const profile = await prisma.userProfile.findFirst();
+    if (!profile || !profile.onboarded) redirect("/onboarding");
+    return <CoachDashboard userName={profile.name} />;
+  } catch (e) {
+    console.error("Home page error:", e);
+    redirect("/onboarding");
+  }
 }

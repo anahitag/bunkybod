@@ -59,7 +59,7 @@ export default function OnboardingPage() {
       }),
     });
 
-    router.push("/");
+    router.push("/home");
   }
 
   return (
