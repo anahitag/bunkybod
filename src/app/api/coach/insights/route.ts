@@ -7,7 +7,7 @@ const getClient = () =>
   new OpenAI({
     baseURL: "https://models.github.ai/inference",
     apiKey: process.env.GITHUB_TOKEN,
-    timeout: 15000, // 15 second timeout
+    timeout: 50000, // 50 second timeout (Vercel hobby allows 60s)
   });
 
 // Simple in-memory cache — regenerate once per day or on manual refresh
@@ -233,16 +233,72 @@ Rules:
     if (cachedInsights) {
       return NextResponse.json(cachedInsights.data);
     }
-    // Return a default response so the page doesn't break
-    return NextResponse.json({
-      highlights: ["Keep logging your food to build data for insights"],
-      lowlights: [],
-      recommendations: [{ title: "Stay consistent", detail: "Log your meals daily to get personalized coaching.", priority: "medium" }],
-      goalProgress: { summary: "Not enough data yet for a full analysis.", score: 5 },
-      weeklyFocus: "Focus on consistent food logging this week",
-      streaks: { daysLogged: 0, workoutStreak: 0, proteinStreak: 0 },
-      bodyCompSnapshot: null,
-      weeklyActivity: { avgSteps: 0, avgCal: 0, workouts: 0, stepsTrend: "stable" },
-    });
+
+    // Try to at least return server-calculated stats even if GPT failed
+    try {
+      const profile = await prisma.userProfile.findFirst();
+      const today = format(new Date(), "yyyy-MM-dd");
+      const sevenAgo = format(subDays(new Date(), 7), "yyyy-MM-dd");
+      const thirtyAgo = format(subDays(new Date(), 30), "yyyy-MM-dd");
+
+      const [recentMetrics, recentWorkouts, recentEntries, dexaScans] = await Promise.all([
+        prisma.healthMetric.findMany({ where: { date: { gte: thirtyAgo } } }),
+        prisma.workout.findMany({ where: { date: { gte: thirtyAgo } }, orderBy: { date: "desc" } }),
+        prisma.foodEntry.findMany({ where: { userId: profile?.id, date: { gte: format(subDays(new Date(), 14), "yyyy-MM-dd") } } }),
+        prisma.dexaScan.findMany({ orderBy: { scanDate: "desc" }, take: 2 }),
+      ]);
+
+      const thisWeekMetrics = recentMetrics.filter((m) => m.date >= sevenAgo);
+      const weekSteps = thisWeekMetrics.filter((m) => m.type === "steps");
+      const weekCal = thisWeekMetrics.filter((m) => m.type === "activeCalories");
+      const thisWeekWorkouts = recentWorkouts.filter((w) => w.date >= sevenAgo);
+
+      let daysLoggedStreak = 0;
+      let startOffset = !recentEntries.some((e) => e.date === today) ? 1 : 0;
+      for (let i = startOffset; i < 30; i++) {
+        if (recentEntries.some((e) => e.date === format(subDays(new Date(), i), "yyyy-MM-dd"))) daysLoggedStreak++;
+        else break;
+      }
+
+      let workoutStreak = 0;
+      let wStartOffset = !recentWorkouts.some((w) => w.date === today) ? 1 : 0;
+      for (let i = wStartOffset; i < 30; i++) {
+        if (recentWorkouts.some((w) => w.date === format(subDays(new Date(), i), "yyyy-MM-dd"))) workoutStreak++;
+        else break;
+      }
+
+      const bodyCompSnapshot = dexaScans.length > 0 ? {
+        bodyFatPct: dexaScans[0].bodyFatPct,
+        leanMassLbs: Math.round(dexaScans[0].leanMassLbs),
+        trend: dexaScans.length >= 2 ? (dexaScans[0].bodyFatPct < dexaScans[1].bodyFatPct ? "improving" : "stable") : "stable",
+      } : null;
+
+      return NextResponse.json({
+        highlights: ["Your data is loading — check back in a moment"],
+        lowlights: [],
+        recommendations: [],
+        goalProgress: { summary: "Analyzing your data...", score: 5 },
+        weeklyFocus: "Keep up your consistency",
+        streaks: { daysLogged: daysLoggedStreak, workoutStreak, proteinStreak: 0 },
+        bodyCompSnapshot,
+        weeklyActivity: {
+          avgSteps: weekSteps.length > 0 ? Math.round(weekSteps.reduce((s, m) => s + m.value, 0) / weekSteps.length) : 0,
+          avgCal: weekCal.length > 0 ? Math.round(weekCal.reduce((s, m) => s + m.value, 0) / weekCal.length) : 0,
+          workouts: thisWeekWorkouts.length,
+          stepsTrend: "stable",
+        },
+      });
+    } catch {
+      return NextResponse.json({
+        highlights: ["Loading..."],
+        lowlights: [],
+        recommendations: [],
+        goalProgress: { summary: "Loading...", score: 5 },
+        weeklyFocus: "Check back soon",
+        streaks: { daysLogged: 0, workoutStreak: 0, proteinStreak: 0 },
+        bodyCompSnapshot: null,
+        weeklyActivity: { avgSteps: 0, avgCal: 0, workouts: 0, stepsTrend: "stable" },
+      });
+    }
   }
 }
