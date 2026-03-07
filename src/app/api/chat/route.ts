@@ -6,7 +6,7 @@ import { format, subDays } from "date-fns";
 
 const getClient = () =>
   new OpenAI({
-    baseURL: "https://models.github.ai/inference",
+    baseURL: process.env.AI_PROXY_URL || "https://models.github.ai/inference",
     apiKey: process.env.GITHUB_TOKEN,
     timeout: 50000,
   });

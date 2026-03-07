@@ -5,9 +5,9 @@ import OpenAI from "openai";
 
 const getClient = () =>
   new OpenAI({
-    baseURL: "https://models.github.ai/inference",
+    baseURL: process.env.AI_PROXY_URL || "https://models.github.ai/inference",
     apiKey: process.env.GITHUB_TOKEN,
-    timeout: 50000, // 50 second timeout (Vercel hobby allows 60s)
+    timeout: 50000,
   });
 
 export const maxDuration = 60;
