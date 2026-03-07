@@ -7,11 +7,15 @@ export async function GET() {
   let dbTest = "not tested";
   let profileCount = 0;
   try {
-    const profiles = await prisma.userProfile.findMany();
-    profileCount = profiles.length;
-    dbTest = "connected OK";
-    if (profiles.length > 0) {
-      dbTest += ` — found ${profiles.length} profile(s), onboarded: ${profiles[0].onboarded}, name: ${profiles[0].name}`;
+    // Use raw query to avoid prepared statement issues
+    const result = await prisma.$queryRaw`SELECT COUNT(*)::int as count FROM "UserProfile"` as { count: number }[];
+    profileCount = result[0]?.count || 0;
+
+    if (profileCount > 0) {
+      const profiles = await prisma.$queryRaw`SELECT name, onboarded FROM "UserProfile" LIMIT 1` as { name: string; onboarded: boolean }[];
+      dbTest = `connected OK — found ${profileCount} profile(s), name: ${profiles[0]?.name}, onboarded: ${profiles[0]?.onboarded}`;
+    } else {
+      dbTest = "connected OK — no profiles";
     }
   } catch (e: unknown) {
     dbTest = `error: ${(e as Error).message}`;
