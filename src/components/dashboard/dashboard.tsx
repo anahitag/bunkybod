@@ -145,13 +145,15 @@ export function Dashboard({ userName = "User" }: { userName?: string }) {
                 </CardContent></Card>
               </div>
 
-              {/* Calorie Bank — weekly view */}
+              {/* Calorie Bank — weekly view, only days with data */}
               {weekly && (() => {
-                const weeklyTarget = (weekly.targets?.calories || 2000) * 7;
-                const weeklyEaten = weekly.days.reduce((s, d) => s + d.calories, 0);
-                const banked = weeklyTarget - weeklyEaten;
-                const avgThisWeek = Math.round(weeklyEaten / Math.max(weekly.days.filter(d => d.calories > 0).length, 1));
+                const daysWithData = weekly.days.filter(d => d.calories > 0);
+                if (daysWithData.length === 0) return null;
                 const dailyTarget = weekly.targets?.calories || 2000;
+                const weeklyTarget = dailyTarget * daysWithData.length;
+                const weeklyEaten = daysWithData.reduce((s, d) => s + d.calories, 0);
+                const banked = weeklyTarget - weeklyEaten;
+                const avgThisWeek = Math.round(weeklyEaten / daysWithData.length);
                 const pctUsed = Math.min(Math.round((weeklyEaten / weeklyTarget) * 100), 100);
 
                 return (
@@ -192,9 +194,9 @@ export function Dashboard({ userName = "User" }: { userName?: string }) {
                         </div>
                       </div>
 
-                      {/* Daily breakdown mini bars */}
+                      {/* Daily breakdown mini bars — only days with data */}
                       <div className="flex gap-1 items-end h-[50px]">
-                        {weekly.days.map((d, i) => {
+                        {daysWithData.map((d, i) => {
                           const pct = dailyTarget > 0 ? Math.min((d.calories / dailyTarget) * 100, 130) : 0;
                           const isOver = d.calories > dailyTarget;
                           const dayLabel = format(parseISO(d.date), "EEE").charAt(0);
@@ -235,12 +237,15 @@ export function Dashboard({ userName = "User" }: { userName?: string }) {
                 </CardContent>
               </Card>
 
-              {/* Adherence Heatmap */}
+              {/* Adherence Heatmap — only from first tracked day */}
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Adherence</CardTitle></CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-1">
-                    {monthly.dailyData.map((d) => (
+                    {(() => {
+                      const firstIdx = monthly.dailyData.findIndex((d) => d.hasEntries);
+                      return firstIdx === -1 ? [] : monthly.dailyData.slice(firstIdx);
+                    })().map((d) => (
                       <div key={d.date} className={`w-3 h-3 rounded-sm ${
                         d.adherence === "green" ? "bg-green-400" :
                         d.adherence === "yellow" ? "bg-yellow-400" :
