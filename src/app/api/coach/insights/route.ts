@@ -83,7 +83,7 @@ export async function GET(request: Request) {
 
     // Nutrition adherence
     const dates14: string[] = [];
-    for (let i = 13; i >= 0; i--) dates14.push(format(subDays(new Date(), i), "yyyy-MM-dd"));
+    for (let i = 13; i >= 0; i--) dates14.push(getDaysAgo(i));
 
     const dailyTotals = dates14.map((date) => {
       const dayEntries = recentEntries.filter((e) => e.date === date);
@@ -124,11 +124,9 @@ export async function GET(request: Request) {
     // Food logging streak — consecutive days going backwards, skip today if nothing logged yet
     let daysLoggedStreak = 0;
     let startOffset = 0;
-    // If today has no entries, start counting from yesterday (today isn't over yet)
     if (!recentEntries.some((e) => e.date === today)) startOffset = 1;
     for (let i = startOffset; i < 30; i++) {
-      const d = format(subDays(new Date(), i), "yyyy-MM-dd");
-      if (recentEntries.some((e) => e.date === d)) daysLoggedStreak++;
+      if (recentEntries.some((e) => e.date === getDaysAgo(i))) daysLoggedStreak++;
       else break;
     }
 
@@ -137,8 +135,7 @@ export async function GET(request: Request) {
     let workoutStartOffset = 0;
     if (!recentWorkouts.some((w) => w.date === today)) workoutStartOffset = 1;
     for (let i = workoutStartOffset; i < 30; i++) {
-      const d = format(subDays(new Date(), i), "yyyy-MM-dd");
-      if (recentWorkouts.some((w) => w.date === d)) workoutStreak++;
+      if (recentWorkouts.some((w) => w.date === getDaysAgo(i))) workoutStreak++;
       else break;
     }
 
@@ -147,7 +144,7 @@ export async function GET(request: Request) {
     let proteinStartOffset = 0;
     if (!recentEntries.some((e) => e.date === today)) proteinStartOffset = 1;
     for (let i = proteinStartOffset; i < 14; i++) {
-      const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+      const d = getDaysAgo(i);
       const dayEntries = recentEntries.filter((e) => e.date === d);
       if (dayEntries.length === 0) break;
       const dayProtein = dayEntries.reduce((s, e) => s + e.proteinG, 0);
