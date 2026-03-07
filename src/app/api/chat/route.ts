@@ -306,7 +306,9 @@ export async function POST(request: Request) {
     for (const action of actions) {
       switch (action.type) {
         case "log_food": {
-          const logDate = action.date === "yesterday" ? yesterday : (action.date || today);
+          let logDate = today;
+          if (action.date === "yesterday") logDate = yesterday;
+          else if (action.date && action.date !== "today" && action.date.match(/^\d{4}-\d{2}-\d{2}$/)) logDate = action.date;
           await prisma.foodEntry.create({
             data: {
               userId: profile.id,
@@ -474,10 +476,18 @@ export async function POST(request: Request) {
       action: hasDataChange ? { type: "data_changed" } : undefined,
     });
   } catch (error: unknown) {
-    const err = error as Error & { status?: number; message?: string };
-    console.error("Chat error:", err.message, err.status, JSON.stringify(err).slice(0, 500));
+    const err = error as Error & { status?: number; message?: string; code?: string };
+    console.error("Chat error:", err.message, err.status);
+
+    if (err.status === 400 && err.message?.includes("content management policy")) {
+      return NextResponse.json({
+        intent: "general_chat",
+        message: "I couldn't process that request. Try rephrasing it.",
+      });
+    }
+
     return NextResponse.json(
-      { intent: "error", message: `Error: ${err.message?.slice(0, 100) || "Something went wrong"}` },
+      { intent: "error", message: "Something went wrong. Please try again." },
       { status: 500 }
     );
   }

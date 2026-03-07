@@ -58,7 +58,8 @@ export async function POST(request: Request) {
         if (CUMULATIVE_TYPES.has(normalizedType)) {
           const source = (point.source || metric.source || "").toLowerCase();
           // Accept if source contains "watch" OR if no source specified (trust the data)
-          if (source && !source.includes("watch") && !source.includes("auto export")) continue;
+          // Only accept Apple Watch data for cumulative metrics
+          if (!source.includes("watch")) continue;
         }
 
         let value: number;
