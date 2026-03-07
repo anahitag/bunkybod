@@ -3,6 +3,7 @@ import { buildSystemPrompt } from "@/lib/ai/prompts";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { format, subDays } from "date-fns";
+import { getToday, getYesterday, getDaysAgo } from "@/lib/date";
 
 const getClient = () =>
   new OpenAI({
@@ -61,8 +62,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ intent: "error", message: "No profile found." }, { status: 404 });
     }
 
-    const today = format(new Date(), "yyyy-MM-dd");
-    const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
+    const today = getToday();
+    const yesterday = getYesterday();
 
     const [todayEntries, yesterdayEntries] = await Promise.all([
       prisma.foodEntry.findMany({ where: { userId: profile.id, date: today }, orderBy: { createdAt: "asc" } }),
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
     }
 
     // --- Fetch activity data (last 30 days) ---
-    const thirtyDaysAgo = format(subDays(new Date(), 30), "yyyy-MM-dd");
+    const thirtyDaysAgo = getDaysAgo(30);
     const recentMetrics = await prisma.healthMetric.findMany({
       where: { date: { gte: thirtyDaysAgo } },
     });
@@ -169,10 +170,10 @@ export async function POST(request: Request) {
     }
 
     // --- Fetch nutrition adherence (last 14 days) ---
-    const fourteenDaysAgo = format(subDays(new Date(), 14), "yyyy-MM-dd");
+    const fourteenDaysAgo = getDaysAgo(14);
     const recentDates: string[] = [];
     for (let i = 13; i >= 0; i--) {
-      recentDates.push(format(subDays(new Date(), i), "yyyy-MM-dd"));
+      recentDates.push(getDaysAgo(i));
     }
     const recentEntries = await prisma.foodEntry.findMany({
       where: { userId: profile.id, date: { gte: fourteenDaysAgo } },

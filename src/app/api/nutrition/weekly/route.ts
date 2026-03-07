@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { format, subDays } from "date-fns";
+import { getToday } from "@/lib/date";
 
 export async function GET(request: NextRequest) {
-  const endDate = request.nextUrl.searchParams.get("endDate") || format(new Date(), "yyyy-MM-dd");
+  const endDate = request.nextUrl.searchParams.get("endDate") || getToday();
 
   const profile = await prisma.userProfile.findFirst();
   if (!profile) {

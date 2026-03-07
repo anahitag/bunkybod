@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { format, subDays } from "date-fns";
+import { getToday, getDaysAgo } from "@/lib/date";
 import OpenAI from "openai";
 
 const getClient = () =>
@@ -27,9 +28,9 @@ export async function GET(request: Request) {
     const profile = await prisma.userProfile.findFirst();
     if (!profile) return NextResponse.json({ error: "No profile" }, { status: 404 });
 
-    const today = format(new Date(), "yyyy-MM-dd");
-    const thirtyAgo = format(subDays(new Date(), 30), "yyyy-MM-dd");
-    const fourteenAgo = format(subDays(new Date(), 14), "yyyy-MM-dd");
+    const today = getToday();
+    const thirtyAgo = getDaysAgo(30);
+    const fourteenAgo = getDaysAgo(14);
 
     // Fetch all data in parallel
     const [dexaScans, recentMetrics, recentWorkouts, recentEntries] = await Promise.all([
@@ -108,7 +109,7 @@ export async function GET(request: Request) {
     }
 
     // Calculate streaks and weekly stats server-side (not GPT-estimated)
-    const sevenAgo = format(subDays(new Date(), 7), "yyyy-MM-dd");
+    const sevenAgo = getDaysAgo(7);
     const thisWeekWorkouts = recentWorkouts.filter((w) => w.date >= sevenAgo);
     const thisWeekMetrics = recentMetrics.filter((m) => m.date >= sevenAgo);
 
@@ -239,9 +240,9 @@ Rules:
     // Try to at least return server-calculated stats even if GPT failed
     try {
       const profile = await prisma.userProfile.findFirst();
-      const today = format(new Date(), "yyyy-MM-dd");
-      const sevenAgo = format(subDays(new Date(), 7), "yyyy-MM-dd");
-      const thirtyAgo = format(subDays(new Date(), 30), "yyyy-MM-dd");
+      const today = getToday();
+      const sevenAgo = getDaysAgo(7);
+      const thirtyAgo = getDaysAgo(30);
 
       const [recentMetrics, recentWorkouts, recentEntries, dexaScans] = await Promise.all([
         prisma.healthMetric.findMany({ where: { date: { gte: thirtyAgo } } }),
@@ -258,14 +259,14 @@ Rules:
       let daysLoggedStreak = 0;
       let startOffset = !recentEntries.some((e) => e.date === today) ? 1 : 0;
       for (let i = startOffset; i < 30; i++) {
-        if (recentEntries.some((e) => e.date === format(subDays(new Date(), i), "yyyy-MM-dd"))) daysLoggedStreak++;
+        if (recentEntries.some((e) => e.date === getDaysAgo(i))) daysLoggedStreak++;
         else break;
       }
 
       let workoutStreak = 0;
       let wStartOffset = !recentWorkouts.some((w) => w.date === today) ? 1 : 0;
       for (let i = wStartOffset; i < 30; i++) {
-        if (recentWorkouts.some((w) => w.date === format(subDays(new Date(), i), "yyyy-MM-dd"))) workoutStreak++;
+        if (recentWorkouts.some((w) => w.date === getDaysAgo(i))) workoutStreak++;
         else break;
       }
 

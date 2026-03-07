@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { format, subDays } from "date-fns";
+import { getDaysAgo } from "@/lib/date";
 
 export async function GET(request: NextRequest) {
   const days = parseInt(request.nextUrl.searchParams.get("days") || "30");
@@ -9,9 +10,8 @@ export async function GET(request: NextRequest) {
   if (!profile) return NextResponse.json({ error: "No profile" }, { status: 404 });
 
   const dates: string[] = [];
-  const today = new Date();
   for (let i = days - 1; i >= 0; i--) {
-    dates.push(format(subDays(today, i), "yyyy-MM-dd"));
+    dates.push(getDaysAgo(i));
   }
 
   const entries = await prisma.foodEntry.findMany({
