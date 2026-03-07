@@ -472,10 +472,11 @@ export async function POST(request: Request) {
       message: finalReply,
       action: hasDataChange ? { type: "data_changed" } : undefined,
     });
-  } catch (error) {
-    console.error("Chat error:", error);
+  } catch (error: unknown) {
+    const err = error as Error & { status?: number; message?: string };
+    console.error("Chat error:", err.message, err.status, JSON.stringify(err).slice(0, 500));
     return NextResponse.json(
-      { intent: "error", message: "Something went wrong. Please try again." },
+      { intent: "error", message: `Error: ${err.message?.slice(0, 100) || "Something went wrong"}` },
       { status: 500 }
     );
   }
