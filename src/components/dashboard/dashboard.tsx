@@ -145,12 +145,12 @@ export function Dashboard({ userName = "User" }: { userName?: string }) {
                 </CardContent></Card>
               </div>
 
-              {/* Calorie Bank — weekly view, only days with data */}
+              {/* Calorie Bank — full weekly budget, only show tracked days */}
               {weekly && (() => {
                 const daysWithData = weekly.days.filter(d => d.calories > 0);
                 if (daysWithData.length === 0) return null;
                 const dailyTarget = weekly.targets?.calories || 2000;
-                const weeklyTarget = dailyTarget * daysWithData.length;
+                const weeklyTarget = dailyTarget * 7; // always a full week budget
                 const weeklyEaten = daysWithData.reduce((s, d) => s + d.calories, 0);
                 const banked = weeklyTarget - weeklyEaten;
                 const avgThisWeek = Math.round(weeklyEaten / daysWithData.length);
@@ -264,11 +264,14 @@ export function Dashboard({ userName = "User" }: { userName?: string }) {
             </>
           )}
 
-          {/* Weekly Trend Chart — after stats */}
+          {/* Weekly Trend Chart — only days with data */}
           {loading ? (
             <Skeleton className="h-[260px] w-full rounded-md" />
           ) : weekly ? (
-            <WeeklyTrendChart days={weekly.days} targets={weekly.targets} />
+            <WeeklyTrendChart
+              days={weekly.days.filter(d => d.calories > 0 || d.proteinG > 0)}
+              targets={weekly.targets}
+            />
           ) : null}
         </TabsContent>
       </Tabs>
