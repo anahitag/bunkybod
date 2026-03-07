@@ -247,7 +247,7 @@ Rules:
       const [recentMetrics, recentWorkouts, recentEntries, dexaScans] = await Promise.all([
         prisma.healthMetric.findMany({ where: { date: { gte: thirtyAgo } } }),
         prisma.workout.findMany({ where: { date: { gte: thirtyAgo } }, orderBy: { date: "desc" } }),
-        prisma.foodEntry.findMany({ where: { userId: profile?.id, date: { gte: format(subDays(new Date(), 14), "yyyy-MM-dd") } } }),
+        prisma.foodEntry.findMany({ where: { userId: profile?.id, date: { gte: getDaysAgo(14) } } }),
         prisma.dexaScan.findMany({ orderBy: { scanDate: "desc" }, take: 2 }),
       ]);
 

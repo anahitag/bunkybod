@@ -110,7 +110,7 @@ export async function POST(request: Request) {
       metricsCount++;
     }
 
-    // Process workouts
+    // Process workouts — dedup by checking if same workout already exists
     let workoutsCount = 0;
     for (const w of rawWorkouts) {
       const dateStr = w.start || w.date;
@@ -124,12 +124,19 @@ export async function POST(request: Request) {
       }
 
       const durationSec = parseFloat(w.duration || "0");
-      const durationMin = durationSec > 300 ? durationSec / 60 : durationSec; // if > 300 assume seconds
+      const durationMin = durationSec > 300 ? durationSec / 60 : durationSec;
+      const workoutType = (w.name || w.type || "Unknown").replace("Traditional ", "");
+
+      // Check for existing workout with same date and start time to prevent duplicates
+      const existing = await prisma.workout.findFirst({
+        where: { date, startTime: dateStr },
+      });
+      if (existing) continue;
 
       await prisma.workout.create({
         data: {
           date,
-          workoutType: w.name || w.type || "Unknown",
+          workoutType,
           durationMin: Math.round(durationMin * 10) / 10,
           caloriesBurned: w.activeEnergyBurned?.qty ? parseFloat(w.activeEnergyBurned.qty) : null,
           avgHeartRate: w.heartRate?.Avg ? parseFloat(w.heartRate.Avg) : null,
