@@ -58,8 +58,8 @@ export async function POST(request: Request) {
         if (CUMULATIVE_TYPES.has(normalizedType)) {
           const source = (point.source || metric.source || "").toLowerCase();
           // Accept if source contains "watch" OR if no source specified (trust the data)
-          // Only accept Apple Watch data for cumulative metrics
-          if (!source.includes("watch")) continue;
+          // Only accept pure Apple Watch data — reject if iPhone is in the source (combined records double-count)
+          if (!source.includes("watch") || source.includes("iphone")) continue;
         }
 
         let value: number;
@@ -127,11 +127,23 @@ export async function POST(request: Request) {
       const durationMin = durationSec > 300 ? durationSec / 60 : durationSec;
       const workoutType = (w.name || w.type || "Unknown").replace("Traditional ", "");
 
-      // Check for existing workout with same date and start time to prevent duplicates
+      // Check for existing workout with same date and similar type to prevent duplicates
       const existing = await prisma.workout.findFirst({
-        where: { date, startTime: dateStr },
+        where: { date, workoutType },
       });
-      if (existing) continue;
+      if (existing) {
+        // Update existing instead of creating duplicate
+        await prisma.workout.update({
+          where: { id: existing.id },
+          data: {
+            durationMin: Math.round(durationMin * 10) / 10,
+            caloriesBurned: w.activeEnergyBurned?.qty ? parseFloat(w.activeEnergyBurned.qty) : existing.caloriesBurned,
+            avgHeartRate: w.heartRate?.Avg ? parseFloat(w.heartRate.Avg) : existing.avgHeartRate,
+            maxHeartRate: w.heartRate?.Max ? parseFloat(w.heartRate.Max) : existing.maxHeartRate,
+          },
+        });
+        continue;
+      }
 
       await prisma.workout.create({
         data: {
