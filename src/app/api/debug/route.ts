@@ -1,32 +1,37 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getToday, getDaysAgo } from "@/lib/date";
 
 export async function GET() {
-  const dbUrl = process.env.DATABASE_URL || "NOT SET";
-
-  let dbTest = "not tested";
-  let profileCount = 0;
   try {
-    // Use raw query to avoid prepared statement issues
-    const result = await prisma.$queryRaw`SELECT COUNT(*)::int as count FROM "UserProfile"` as { count: number }[];
-    profileCount = result[0]?.count || 0;
+    const today = getToday();
+    const profile = await prisma.userProfile.findFirst();
 
-    if (profileCount > 0) {
-      const profiles = await prisma.$queryRaw`SELECT name, onboarded FROM "UserProfile" LIMIT 1` as { name: string; onboarded: boolean }[];
-      dbTest = `connected OK — found ${profileCount} profile(s), name: ${profiles[0]?.name}, onboarded: ${profiles[0]?.onboarded}`;
-    } else {
-      dbTest = "connected OK — no profiles";
+    // Check food entries per day
+    const dayChecks: Record<string, number> = {};
+    for (let i = 0; i < 7; i++) {
+      const d = getDaysAgo(i);
+      const count = await prisma.foodEntry.count({ where: { date: d } });
+      dayChecks[d] = count;
     }
-  } catch (e: unknown) {
-    dbTest = `error: ${(e as Error).message}`;
-  }
 
-  return NextResponse.json({
-    hasDbUrl: dbUrl !== "NOT SET",
-    dbUrlPrefix: dbUrl.substring(0, 40) + "...",
-    hasDirectUrl: !!process.env.DIRECT_URL,
-    hasGithubToken: !!process.env.GITHUB_TOKEN,
-    dbTest,
-    profileCount,
-  });
+    // Calculate streak
+    let streak = 0;
+    const startOffset = dayChecks[today] === 0 ? 1 : 0;
+    for (let i = startOffset; i < 7; i++) {
+      const d = getDaysAgo(i);
+      if (dayChecks[d] > 0) streak++;
+      else break;
+    }
+
+    return NextResponse.json({
+      today,
+      profile: profile ? { name: profile.name, id: profile.id } : null,
+      foodByDay: dayChecks,
+      calculatedStreak: streak,
+      startOffset,
+    });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: (e as Error).message });
+  }
 }
