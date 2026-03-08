@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }),
     prisma.workout.findMany({
       where: { date: { in: dates } },
-      orderBy: { date: "asc" },
+      orderBy: { date: "desc" },
     }),
   ]);
 
