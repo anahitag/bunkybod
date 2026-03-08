@@ -62,8 +62,8 @@ export async function POST(request: Request) {
         if (CUMULATIVE_TYPES.has(normalizedType)) {
           const source = (point.source || metric.source || "").toLowerCase();
           // Accept if source contains "watch" OR if no source specified (trust the data)
-          // Only accept pure Apple Watch data — reject if iPhone is in the source (combined records double-count)
-          if (!source.includes("watch") || source.includes("iphone")) continue;
+          // Health Auto Export already deduplicates — accept all data from the webhook
+          // The app handles Apple Health's internal dedup before sending
         }
 
         let value: number;
