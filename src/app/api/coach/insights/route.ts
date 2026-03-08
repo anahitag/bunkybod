@@ -229,10 +229,7 @@ Rules:
     return NextResponse.json(result);
   } catch (error) {
     console.error("Coach error:", error);
-    // If we have stale cache, return it instead of an error
-    if (cachedInsights) {
-      return NextResponse.json(cachedInsights.data);
-    }
+    // Don't use stale cache — always recalculate server stats fresh
 
     // Try to at least return server-calculated stats even if GPT failed
     try {
