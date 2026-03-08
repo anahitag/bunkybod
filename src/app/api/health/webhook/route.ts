@@ -122,7 +122,7 @@ export async function POST(request: Request) {
 
       let date: string;
       try {
-        date = format(new Date(dateStr), "yyyy-MM-dd");
+        date = toPSTDate(dateStr);
       } catch {
         continue;
       }
