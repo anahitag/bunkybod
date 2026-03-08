@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { format } from "date-fns";
+
+// Convert a date string to YYYY-MM-DD in Pacific Time
+function toPSTDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+}
 
 const TYPE_MAP: Record<string, string> = {
   "step_count": "steps",
@@ -78,7 +82,7 @@ export async function POST(request: Request) {
 
         let date: string;
         try {
-          date = format(new Date(dateStr), "yyyy-MM-dd");
+          date = toPSTDate(dateStr);
         } catch {
           continue;
         }
