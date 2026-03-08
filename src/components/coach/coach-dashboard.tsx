@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
-import { CheckCircle, AlertTriangle, Lightbulb, Sparkles, RefreshCw, Trophy, Zap, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { CheckCircle, AlertTriangle, Lightbulb, Sparkles, Trophy, Zap, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RadialBarChart, RadialBar, PolarAngleAxis, ResponsiveContainer } from "recharts";
 
@@ -219,13 +219,7 @@ export function CoachDashboard({ userName }: { userName: string }) {
             </div>
           )}
 
-          {/* Refresh */}
-          <div className="flex justify-center pt-1 pb-24">
-            <Button variant="ghost" size="sm" onClick={() => fetchInsights(true)} disabled={refreshing} className="text-[11px] text-muted-foreground">
-              <RefreshCw className={`h-3 w-3 mr-1 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? "Analyzing..." : "Refresh"}
-            </Button>
-          </div>
+          <div className="pb-24" />
         </>
       ) : (
         <Card>
