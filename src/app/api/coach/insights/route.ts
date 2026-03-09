@@ -13,9 +13,71 @@ const getClient = () =>
 
 export const maxDuration = 60;
 
-// Simple in-memory cache — regenerate once per day or on manual refresh
+// Calculate server stats directly from DB — used by both main and fallback paths
+async function getServerStats() {
+  const today = getToday();
+  const sevenAgo = getDaysAgo(7);
+  const thirtyAgo = getDaysAgo(30);
+
+  const profile = await prisma.userProfile.findFirst();
+  const [recentMetrics, recentWorkouts, recentEntries, dexaScans] = await Promise.all([
+    prisma.healthMetric.findMany({ where: { date: { gte: thirtyAgo } } }),
+    prisma.workout.findMany({ where: { date: { gte: thirtyAgo } }, orderBy: { date: "desc" } }),
+    prisma.foodEntry.findMany({ where: { userId: profile?.id, date: { gte: getDaysAgo(30) } } }),
+    prisma.dexaScan.findMany({ orderBy: { scanDate: "desc" }, take: 2 }),
+  ]);
+
+  const thisWeekMetrics = recentMetrics.filter((m) => m.date >= sevenAgo);
+  const weekSteps = thisWeekMetrics.filter((m) => m.type === "steps");
+  const weekCal = thisWeekMetrics.filter((m) => m.type === "activeCalories");
+  const thisWeekWorkouts = recentWorkouts.filter((w) => w.date >= sevenAgo);
+
+  // Streaks
+  let daysLoggedStreak = 0;
+  const logStart = !recentEntries.some((e) => e.date === today) ? 1 : 0;
+  for (let i = logStart; i < 30; i++) {
+    if (recentEntries.some((e) => e.date === getDaysAgo(i))) daysLoggedStreak++;
+    else break;
+  }
+
+  let workoutStreak = 0;
+  const wStart = !recentWorkouts.some((w) => w.date === today) ? 1 : 0;
+  for (let i = wStart; i < 30; i++) {
+    if (recentWorkouts.some((w) => w.date === getDaysAgo(i))) workoutStreak++;
+    else break;
+  }
+
+  let proteinStreak = 0;
+  const pStart = !recentEntries.some((e) => e.date === today) ? 1 : 0;
+  for (let i = pStart; i < 30; i++) {
+    const d = getDaysAgo(i);
+    const dayEntries = recentEntries.filter((e) => e.date === d);
+    if (dayEntries.length === 0) break;
+    const dayProtein = dayEntries.reduce((s, e) => s + e.proteinG, 0);
+    if (profile && dayProtein >= profile.proteinTargetG * 0.9) proteinStreak++;
+    else break;
+  }
+
+  const bodyCompSnapshot = dexaScans.length > 0 ? {
+    bodyFatPct: dexaScans[0].bodyFatPct,
+    leanMassLbs: Math.round(dexaScans[0].leanMassLbs),
+    trend: dexaScans.length >= 2 ? (dexaScans[0].bodyFatPct < dexaScans[1].bodyFatPct ? "improving" : dexaScans[0].bodyFatPct > dexaScans[1].bodyFatPct ? "declining" : "stable") : "stable",
+  } : null;
+
+  return {
+    streaks: { daysLogged: daysLoggedStreak, workoutStreak, proteinStreak },
+    bodyCompSnapshot,
+    weeklyActivity: {
+      avgSteps: weekSteps.length > 0 ? Math.round(weekSteps.reduce((s, m) => s + m.value, 0) / weekSteps.length) : 0,
+      avgCal: weekCal.length > 0 ? Math.round(weekCal.reduce((s, m) => s + m.value, 0) / weekCal.length) : 0,
+      workouts: thisWeekWorkouts.length,
+      stepsTrend: "stable" as string,
+    },
+  };
+}
+
 let cachedInsights: { data: unknown; timestamp: number } | null = null;
-const CACHE_TTL = 1000 * 60 * 60 * 12; // 12 hours
+const CACHE_TTL = 1000 * 60 * 60 * 12;
 
 export async function GET(request: Request) {
   const forceRefresh = new URL(request.url).searchParams.get("refresh") === "true";
@@ -223,67 +285,23 @@ Rules:
       insights = { highlights: [], lowlights: [], recommendations: [], goalProgress: { summary: "Unable to generate insights", score: 5 }, weeklyFocus: "Keep logging your food consistently" };
     }
 
-    // Merge GPT insights with server-calculated stats
-    const result = { ...insights, ...serverStats };
+    // Always get fresh server stats right before returning
+    const freshStats = await getServerStats();
+    const result = { ...insights, ...freshStats };
     cachedInsights = { data: result, timestamp: Date.now() };
     return NextResponse.json(result);
   } catch (error) {
     console.error("Coach error:", error);
-    // Don't use stale cache — always recalculate server stats fresh
-
-    // Try to at least return server-calculated stats even if GPT failed
+    // GPT failed — return server stats with default GPT content
     try {
-      const profile = await prisma.userProfile.findFirst();
-      const today = getToday();
-      const sevenAgo = getDaysAgo(7);
-      const thirtyAgo = getDaysAgo(30);
-
-      const [recentMetrics, recentWorkouts, recentEntries, dexaScans] = await Promise.all([
-        prisma.healthMetric.findMany({ where: { date: { gte: thirtyAgo } } }),
-        prisma.workout.findMany({ where: { date: { gte: thirtyAgo } }, orderBy: { date: "desc" } }),
-        prisma.foodEntry.findMany({ where: { userId: profile?.id, date: { gte: getDaysAgo(14) } } }),
-        prisma.dexaScan.findMany({ orderBy: { scanDate: "desc" }, take: 2 }),
-      ]);
-
-      const thisWeekMetrics = recentMetrics.filter((m) => m.date >= sevenAgo);
-      const weekSteps = thisWeekMetrics.filter((m) => m.type === "steps");
-      const weekCal = thisWeekMetrics.filter((m) => m.type === "activeCalories");
-      const thisWeekWorkouts = recentWorkouts.filter((w) => w.date >= sevenAgo);
-
-      let daysLoggedStreak = 0;
-      let startOffset = !recentEntries.some((e) => e.date === today) ? 1 : 0;
-      for (let i = startOffset; i < 30; i++) {
-        if (recentEntries.some((e) => e.date === getDaysAgo(i))) daysLoggedStreak++;
-        else break;
-      }
-
-      let workoutStreak = 0;
-      let wStartOffset = !recentWorkouts.some((w) => w.date === today) ? 1 : 0;
-      for (let i = wStartOffset; i < 30; i++) {
-        if (recentWorkouts.some((w) => w.date === getDaysAgo(i))) workoutStreak++;
-        else break;
-      }
-
-      const bodyCompSnapshot = dexaScans.length > 0 ? {
-        bodyFatPct: dexaScans[0].bodyFatPct,
-        leanMassLbs: Math.round(dexaScans[0].leanMassLbs),
-        trend: dexaScans.length >= 2 ? (dexaScans[0].bodyFatPct < dexaScans[1].bodyFatPct ? "improving" : "stable") : "stable",
-      } : null;
-
+      const freshStats = await getServerStats();
       return NextResponse.json({
-        highlights: ["Your data is loading — check back in a moment"],
+        highlights: ["Keep logging to get personalized insights"],
         lowlights: [],
         recommendations: [],
-        goalProgress: { summary: "Analyzing your data...", score: 5 },
-        weeklyFocus: "Keep up your consistency",
-        streaks: { daysLogged: daysLoggedStreak, workoutStreak, proteinStreak: 0 },
-        bodyCompSnapshot,
-        weeklyActivity: {
-          avgSteps: weekSteps.length > 0 ? Math.round(weekSteps.reduce((s, m) => s + m.value, 0) / weekSteps.length) : 0,
-          avgCal: weekCal.length > 0 ? Math.round(weekCal.reduce((s, m) => s + m.value, 0) / weekCal.length) : 0,
-          workouts: thisWeekWorkouts.length,
-          stepsTrend: "stable",
-        },
+        goalProgress: { summary: "AI coach is unavailable — run the AI proxy on your computer for full insights.", score: 5 },
+        weeklyFocus: "Stay consistent with your logging",
+        ...freshStats,
       });
     } catch {
       return NextResponse.json({
