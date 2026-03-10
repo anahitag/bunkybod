@@ -52,7 +52,21 @@ export function UnifiedInputBar({ onDataChanged }: UnifiedInputBarProps) {
         body: JSON.stringify({ message: text, conversationHistory: history }),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        // Vercel returned non-JSON (e.g., 504 HTML timeout page)
+        throw new Error(
+          res.status === 504
+            ? "Request timed out. The server took too long to respond."
+            : `Server error (${res.status}). Please try again.`
+        );
+      }
+
+      if (!res.ok) {
+        throw new Error(data.message || `Server error (${res.status})`);
+      }
 
       setMessages((prev) => [
         ...prev,
@@ -62,10 +76,11 @@ export function UnifiedInputBar({ onDataChanged }: UnifiedInputBarProps) {
       // Always refresh dashboard after any AI interaction — covers food logs,
       // deletes, goal changes, profile updates, and multi-action responses
       onDataChanged();
-    } catch {
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Something went wrong. Please try again." },
+        { role: "assistant", content: errorMsg },
       ]);
     } finally {
       setLoading(false);

@@ -477,7 +477,7 @@ export async function POST(request: Request) {
     });
   } catch (error: unknown) {
     const err = error as Error & { status?: number; message?: string; code?: string };
-    console.error("Chat error:", err.message, err.status);
+    console.error("Chat error:", err.message, err.status, err.code);
 
     if (err.status === 400 && err.message?.includes("content management policy")) {
       return NextResponse.json({
@@ -486,8 +486,23 @@ export async function POST(request: Request) {
       });
     }
 
+    // Provide a more descriptive error to help diagnose Vercel issues
+    const detail = err.message || "Unknown error";
+    const isTimeout = detail.includes("timeout") || detail.includes("ETIMEDOUT") || detail.includes("abort") || err.code === "ETIMEDOUT";
+    const isAuth = err.status === 401 || err.status === 403;
+    const isRateLimit = err.status === 429;
+
+    let userMessage = "Something went wrong. Please try again.";
+    if (isTimeout) {
+      userMessage = "The request timed out. The AI service took too long to respond — please try again.";
+    } else if (isAuth) {
+      userMessage = "AI authentication failed. The API token may have expired.";
+    } else if (isRateLimit) {
+      userMessage = "Rate limited by the AI service. Please wait a moment and try again.";
+    }
+
     return NextResponse.json(
-      { intent: "error", message: "Something went wrong. Please try again." },
+      { intent: "error", message: userMessage },
       { status: 500 }
     );
   }
