@@ -492,7 +492,7 @@ export async function POST(request: Request) {
     const isAuth = err.status === 401 || err.status === 403;
     const isRateLimit = err.status === 429;
 
-    let userMessage = "Something went wrong. Please try again.";
+    let userMessage = `Error: ${detail}`;
     if (isTimeout) {
       userMessage = "The request timed out. The AI service took too long to respond — please try again.";
     } else if (isAuth) {
